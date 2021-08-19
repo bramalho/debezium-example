@@ -14,20 +14,10 @@ services:
     image: debezium/kafka:${DEBEZIUM_VERSION:-1.5}
     ports:
      - 9092:9092
-    links:
+    depends_on:
      - zookeeper
     environment:
      - ZOOKEEPER_CONNECT=zookeeper:2181
-
-  elastic:
-    container_name: elastic
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-7.14.0}
-    ports:
-     - 9200:9200
-    environment:
-     - http.host=0.0.0.0
-     - transport.host=127.0.0.1
-     - xpack.security.enabled=false
 
   mysql:
     container_name: mysql
@@ -37,7 +27,21 @@ services:
     environment:
      - MYSQL_ROOT_PASSWORD=root
      - MYSQL_USER=user
-     - MYSQL_PASSWORD=password 
+     - MYSQL_PASSWORD=password
+    volumes:
+      - ./docker/mysql/mysql.cnf:/etc/mysql/conf.d/mysql.cnf
+      - ./docker/mysql/data.sql:/docker-entrypoint-initdb.d/00-data.sql
+    cap_add:
+      - SYS_NICE  # CAP_SYS_NICE
+
+  elastic:
+    container_name: elastic
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-7.14.0}
+    ports:
+     - 9200:9200
+    environment:
+      - xpack.security.enabled=false
+      - "discovery.type=single-node"
 
   connect:
     container_name: connect
@@ -47,7 +51,7 @@ services:
     ports:
      - 8083:8083
      - 5005:5005
-    links:
+    depends_on:
      - kafka
      - mysql
      - elastic
@@ -63,7 +67,26 @@ services:
     image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION:-7.14.0}
     ports:
      - 5601:5601
-    links:
+    depends_on:
      - elastic
     environment:
      - ELASTICSEARCH_HOSTS=http://elastic:9200
+
+  control-center:
+    container_name: control-center
+    image: confluentinc/cp-enterprise-control-center:6.2.0
+    depends_on:
+      - connect
+    ports:
+      - 9021:9021
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
+      CONTROL_CENTER_CONNECT_CONNECT-DEFAULT_CLUSTER: 'connect:8083'
+      # CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
+      # CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
+      # CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      PORT: 9021

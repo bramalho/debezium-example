@@ -3,7 +3,7 @@ version: '3.5'
 services: 
   zookeeper:
     container_name: zookeeper
-    image: debezium/zookeeper:${DEBEZIUM_VERSION:-1.5}
+    image: debezium/zookeeper:${DEBEZIUM_VERSION:-1.4}
     ports:
      - 2181:2181
      - 2888:2888
@@ -11,7 +11,7 @@ services:
   
   kafka:
     container_name: kafka
-    image: debezium/kafka:${DEBEZIUM_VERSION:-1.5}
+    image: debezium/kafka:${DEBEZIUM_VERSION:-1.4}
     ports:
      - 9092:9092
     depends_on:
@@ -36,16 +36,18 @@ services:
 
   elastic:
     container_name: elastic
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-7.14.0}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-7.3.0}
     ports:
      - 9200:9200
     environment:
-      - xpack.security.enabled=false
-      - "discovery.type=single-node"
+     - http.host=0.0.0.0
+     - transport.host=127.0.0.1
+     - xpack.security.enabled=false
+     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
 
   connect:
     container_name: connect
-    image: debezium/connect-jdbc-es:${DEBEZIUM_VERSION:-1.5}
+    image: debezium/connect-jdbc-es:${DEBEZIUM_VERSION:-1.4}
     build:
       context: docker/connect
     ports:
@@ -64,7 +66,7 @@ services:
 
   kibana:
     container_name: kibana
-    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION:-7.14.0}
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION:-7.3.0}
     ports:
      - 5601:5601
     depends_on:
@@ -82,9 +84,6 @@ services:
     environment:
       CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
       CONTROL_CENTER_CONNECT_CONNECT-DEFAULT_CLUSTER: 'connect:8083'
-      # CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
-      # CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
-      # CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       CONTROL_CENTER_REPLICATION_FACTOR: 1
       CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
       CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
